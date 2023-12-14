@@ -33,27 +33,42 @@
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xFFFFFF);
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.z = 15;
-    camera.position.y = -5;
+    camera.position.y = -8;
 
-    renderer = new THREE.WebGLRenderer();
+    renderer = new THREE.WebGLRenderer({ antialias: true } );
     renderer.setSize(window.innerWidth, window.innerHeight);
+    // renderer.shadowMap.enabled = true;
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    // cube
+    const geometry = new THREE.BoxGeometry(6, 6, 6);
     const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.position.set(0, -5, 0)
+    let cube = new THREE.Mesh(geometry, material);
+    cube.position.set(0, -10, 0)
+    cube.castShadow = true;
+    cube.receiveShadow = true;
     scene.add(cube);
 
+
+    // floor
+    const floorGeometry = new THREE.BoxGeometry(200, 1, 200);
+    const floorMaterial = new THREE.MeshPhongMaterial({color: 0xffffff});
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    scene.add(floor);
+    floor.position.y = -20;
+    floor.receiveShadow = true;
+
+
+    geometry.computeVertexNormals();
     const gui = new dat.GUI();
 
     const loader = new GLTFLoader();
     loader.load('ReefBreeders.gltf', (gltf) => {
-      gltf.scene.traverse((child, index) => {
+      gltf.scene.traverse((child) => {
         if (child.isMesh && child.name.includes('IT60-LENS-3D-PMMA')) {
 
           const emissiveMaterial = new THREE.MeshStandardMaterial({
@@ -64,16 +79,24 @@
 
           child.material = emissiveMaterial;
 
-          // const spotLight = new THREE.SpotLight(0xff0000, 1);
-          // spotLight.position.copy({...child.position, y: -2.5});
-          // spotLight.target = cube;
+          const spotLight = new THREE.SpotLight(emissiveMaterial.emissive);
+          child.getWorldPosition(spotLight.position)
+          spotLight.position.y = child.position.y
+          spotLight.translateX(-4.5)
+          spotLight.translateZ(-7)
+          spotLight.target = cube;
+          spotLight.angle = 0.13;
+          spotLight.penumbra = 1;
+          spotLight.decay = 1;
 
+          spotLight.castShadow = true;
+
+          scene.add(new THREE.SpotLightHelper(spotLight), spotLight);
           const folderDoge = gui.addFolder( child.name );
 
           folderDoge.addColor( { emissive: emissiveMaterial.emissive.getHex() }, 'emissive' ).onChange( ( value ) => {
             emissiveMaterial.emissive.setHex(value);
           } );
-          // scene.add(spotLight);
 
         }
       });
@@ -89,6 +112,7 @@
     document.body.appendChild(renderer.domElement);
 
   }
+
 
   function randomThreeJsColor() {
     return new THREE.Color(Math.random(), Math.random(), Math.random());
